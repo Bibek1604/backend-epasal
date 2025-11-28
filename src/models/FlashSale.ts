@@ -35,12 +35,12 @@ const FlashSaleSchema = new Schema<IFlashSaleDocument>(
       min: 0,
     },
     startTime: {
-      type: String,
+      type: Date,
       required: true,
       index: true,
     },
     endTime: {
-      type: String,
+      type: Date,
       required: true,
       index: true,
     },
@@ -49,9 +49,10 @@ const FlashSaleSchema = new Schema<IFlashSaleDocument>(
       default: true,
       index: true,
     },
-    created_at: {
-      type: String,
-      required: true,
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
     },
   },
   {

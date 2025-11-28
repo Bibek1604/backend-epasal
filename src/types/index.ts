@@ -3,17 +3,14 @@ export interface IProduct {
   id: string;
   name: string;
   description: string | null;
-  price: number | null;
-  beforePrice: number;
-  afterPrice: number;
+  price: number;
   discountPrice: number;
   hasOffer: boolean;
   imageUrl: string;
-  stock: number | null;
-  category_id: string | null;
-  sectionId: string;
+  stock: number;
+  category_id: string;
   isActive: boolean;
-  created_at: string;
+  createdAt: Date;
 }
 
 // Order Types
@@ -74,20 +71,18 @@ export interface ICoupon {
   created_at: string;
 }
 
-// Flash Sale Types
-export interface IFlashSale {
-  id: string;
-  productId: string;
-  flashPrice: number;
-  currentStock: number;
-  maxStock: number;
-  startTime: string;
-  endTime: string;
-  isActive: boolean;
-  created_at: string;
-}
-
-// Query Parameters
+  // Flash Sale Types
+  export interface IFlashSale {
+    id: string;
+    productId: string;
+    flashPrice: number;
+    currentStock: number;
+    maxStock: number;
+    startTime: Date;
+    endTime: Date;
+    isActive: boolean;
+    createdAt: Date;
+  }// Query Parameters
 export interface IPaginationQuery {
   page?: number;
   limit?: number;
@@ -97,8 +92,7 @@ export interface IPaginationQuery {
 }
 
 export interface IProductQuery extends IPaginationQuery {
-  categoryId?: string;
-  sectionId?: string;
+  category_id?: string;
   hasOffer?: boolean;
   minPrice?: number;
   maxPrice?: number;
@@ -114,17 +108,14 @@ export interface IOrderQuery extends IPaginationQuery {
 
 // Request Body Types
 export interface ICreateProductBody {
-  imageUrl: string | undefined;
   name: string;
   description?: string;
-  price?: number;
-  beforePrice: number;
-  afterPrice: number;
-  discountPrice: number;
-  hasOffer: boolean;
+  price: number;
+  discountPrice?: number;
+  hasOffer?: boolean;
   stock?: number;
-  category_id?: string;
-  sectionId: string;
+  category_id: string;
+  imageUrl?: string;
   isActive?: boolean;
 }
 

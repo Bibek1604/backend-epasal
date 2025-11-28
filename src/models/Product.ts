@@ -8,7 +8,7 @@ export interface IProductDocument extends Omit<IProduct, 'id'>, Document {
 const ProductSchema = new Schema<IProductDocument>(
   {
     id: {
-      type: String,   
+      type: String,
       required: true,
       unique: true,
       index: true,
@@ -25,21 +25,11 @@ const ProductSchema = new Schema<IProductDocument>(
     },
     price: {
       type: Number,
-      default: null,
-    },
-    beforePrice: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    afterPrice: {
-      type: Number,
       required: true,
       min: 0,
     },
     discountPrice: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
     },
@@ -54,14 +44,9 @@ const ProductSchema = new Schema<IProductDocument>(
     },
     stock: {
       type: Number,
-      default: null,
+      default: 0,
     },
     category_id: {
-      type: String,
-      default: null,
-      index: true,
-    },
-    sectionId: {
       type: String,
       required: true,
       index: true,
@@ -71,21 +56,19 @@ const ProductSchema = new Schema<IProductDocument>(
       default: true,
       index: true,
     },
-    created_at: {
-      type: String,
-      required: true,
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
     },
   },
   {
     timestamps: false,
     versionKey: false,
   }
-);
-
-// Compound indexes for efficient queries
-ProductSchema.index({ isActive: 1, created_at: -1 });
+);// Compound indexes for efficient queries
+ProductSchema.index({ isActive: 1, createdAt: -1 });
 ProductSchema.index({ category_id: 1, isActive: 1 });
-ProductSchema.index({ sectionId: 1, isActive: 1 });
 ProductSchema.index({ hasOffer: 1, isActive: 1 });
 ProductSchema.index({ name: 'text', description: 'text' });
 
