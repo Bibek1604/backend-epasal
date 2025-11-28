@@ -64,7 +64,7 @@ export class BannerService {
     const bannerData = {
       id,
       ...data,
-      imageUrl: imageUrl || '',
+      imageUrl: imageUrl || null,
       created_at,
     };
 

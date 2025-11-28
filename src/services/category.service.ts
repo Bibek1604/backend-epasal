@@ -91,7 +91,7 @@ export class CategoryService {
       id,
       ...data,
       slug,
-      imageUrl: imageUrl || '',
+      imageUrl: imageUrl || null,
       created_at,
     };
 

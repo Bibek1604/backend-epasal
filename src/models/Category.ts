@@ -29,11 +29,11 @@ const CategorySchema = new Schema<ICategoryDocument>(
     },
     description: {
       type: String,
-      required: true,
+      default: null,
     },
     imageUrl: {
       type: String,
-      required: true,
+      default: null,
     },
     isActive: {
       type: Boolean,

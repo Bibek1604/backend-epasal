@@ -24,7 +24,7 @@ const BannerSchema = new Schema<IBannerDocument>(
     },
     imageUrl: {
       type: String,
-      required: true,
+      default: null,
     },
     isActive: {
       type: Boolean,

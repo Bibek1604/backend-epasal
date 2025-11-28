@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import bannerService from '../services/banner.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
+import { uploadLocalImage, deleteLocalImage, uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
 
 export class BannerController {
   /**
@@ -41,9 +41,9 @@ export class BannerController {
   createBanner = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/banners');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const banner = await bannerService.createBanner(req.body, imageUrl);
@@ -59,15 +59,15 @@ export class BannerController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
       // Get old banner to delete old image
       const oldBanner = await bannerService.getBannerById(id);
       if (oldBanner.imageUrl) {
-        await deleteFromCloudinary(oldBanner.imageUrl);
+        deleteLocalImage(oldBanner.imageUrl);
       }
 
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/banners');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const banner = await bannerService.updateBanner(id, req.body, imageUrl);
@@ -85,7 +85,7 @@ export class BannerController {
     // Get banner to delete image
     const banner = await bannerService.getBannerById(id);
     if (banner.imageUrl) {
-      await deleteFromCloudinary(banner.imageUrl);
+      deleteLocalImage(banner.imageUrl);
     }
 
     const result = await bannerService.deleteBanner(id);

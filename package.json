@@ -9,6 +9,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "test": "jest --runInBand --detectOpenHandles",
     "build": "tsc",
+    "setup-admin": "ts-node setupAdmin.ts",
     "gen:admin-token": "node scripts/generate_admin_token.js",
     "gen:admin-token:save": "node scripts/generate_admin_token.js --save",
     "smoke": "node scripts/smoke_tests.js",

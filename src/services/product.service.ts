@@ -97,7 +97,7 @@ export class ProductService {
     const productData = {
       id,
       ...data,
-      imageUrl: imageUrl || data.imageUrl || '',
+      imageUrl: imageUrl || data.imageUrl || null,
       created_at,
     };
 

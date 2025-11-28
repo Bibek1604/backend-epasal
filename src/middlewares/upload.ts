@@ -1,10 +1,25 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { Request } from 'express';
 import { BadRequestError } from '../utils/errors';
 
-// Configure memory storage for Cloudinary upload
-const storage = multer.memoryStorage();
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure disk storage for local uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
 
 // File filter to accept only images
 const fileFilter = (
@@ -41,7 +56,40 @@ export const uploadFields = upload.fields([
 ]);
 
 /**
- * Cloudinary upload helper
+ * Local file upload helper
+ * Saves uploaded image to local /uploads directory
+ */
+export const uploadLocalImage = (file: Express.Multer.File): string => {
+  if (!file) {
+    throw new BadRequestError('No file provided');
+  }
+
+  // Return relative path for serving the image
+  const imagePath = `/uploads/${file.filename}`;
+  return imagePath;
+};
+
+/**
+ * Delete local image file
+ */
+export const deleteLocalImage = (imagePath: string): void => {
+  try {
+    if (!imagePath) return;
+    
+    // Extract filename from path
+    const filename = imagePath.replace('/uploads/', '');
+    const filepath = path.join(uploadsDir, filename);
+    
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+  } catch (error) {
+    console.error('Error deleting local image:', error);
+  }
+};
+
+/**
+ * Cloudinary upload helper (kept for backward compatibility)
  */
 import { cloudinary } from '../config/cloudinary';
 import { Readable } from 'stream';

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import productService from '../services/product.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
+import { uploadLocalImage, deleteLocalImage, uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
 
 export class ProductController {
   /**
@@ -41,9 +41,9 @@ export class ProductController {
   createProduct = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/products');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const product = await productService.createProduct(req.body, imageUrl);
@@ -59,15 +59,15 @@ export class ProductController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
       // Get old product to delete old image
       const oldProduct = await productService.getProductById(id);
       if (oldProduct.imageUrl) {
-        await deleteFromCloudinary(oldProduct.imageUrl);
+        deleteLocalImage(oldProduct.imageUrl);
       }
 
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/products');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const product = await productService.updateProduct(id, req.body, imageUrl);
@@ -85,7 +85,7 @@ export class ProductController {
     // Get product to delete image
     const product = await productService.getProductById(id);
     if (product.imageUrl) {
-      await deleteFromCloudinary(product.imageUrl);
+      deleteLocalImage(product.imageUrl);
     }
 
     const result = await productService.deleteProduct(id);

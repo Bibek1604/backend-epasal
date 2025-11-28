@@ -8,7 +8,7 @@ export interface IProductDocument extends Omit<IProduct, 'id'>, Document {
 const ProductSchema = new Schema<IProductDocument>(
   {
     id: {
-      type: String,
+      type: String,   
       required: true,
       unique: true,
       index: true,
@@ -50,7 +50,7 @@ const ProductSchema = new Schema<IProductDocument>(
     },
     imageUrl: {
       type: String,
-      required: true,
+      default: null,
     },
     stock: {
       type: Number,

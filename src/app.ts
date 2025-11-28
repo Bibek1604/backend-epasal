@@ -22,6 +22,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 /**
@@ -43,6 +44,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
+
+/**
+ * Serve Static Files (Uploaded Images)
+ */
+import path from 'path';
+const uploadsDir = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsDir));
 
 /**
  * Request Logging (Development)
@@ -120,3 +128,4 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
+

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import categoryService from '../services/category.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
+import { uploadLocalImage, deleteLocalImage, uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
 
 export class CategoryController {
   /**
@@ -52,9 +52,9 @@ export class CategoryController {
   createCategory = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/categories');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const category = await categoryService.createCategory(req.body, imageUrl);
@@ -70,15 +70,15 @@ export class CategoryController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload
+    // Handle image upload - using local storage
     if (req.file) {
       // Get old category to delete old image
       const oldCategory = await categoryService.getCategoryById(id);
       if (oldCategory.imageUrl) {
-        await deleteFromCloudinary(oldCategory.imageUrl);
+        deleteLocalImage(oldCategory.imageUrl);
       }
 
-      imageUrl = await uploadToCloudinary(req.file, 'epasaley/categories');
+      imageUrl = uploadLocalImage(req.file);
     }
 
     const category = await categoryService.updateCategory(id, req.body, imageUrl);
@@ -96,7 +96,7 @@ export class CategoryController {
     // Get category to delete image
     const category = await categoryService.getCategoryById(id);
     if (category.imageUrl) {
-      await deleteFromCloudinary(category.imageUrl);
+      deleteLocalImage(category.imageUrl);
     }
 
     const result = await categoryService.deleteCategory(id);
