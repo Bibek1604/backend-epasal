@@ -46,6 +46,13 @@ export const getOrderByIdSchema = {
   }),
 };
 
+// Track Order Schema (same as getOrderById - for public tracking)
+export const trackOrderSchema = {
+  params: Joi.object({
+    id: Joi.string().required(),
+  }),
+};
+
 export const getOrdersQuerySchema = {
   query: Joi.object({
     page: Joi.number().integer().min(1).optional(),

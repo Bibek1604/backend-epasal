@@ -116,6 +116,28 @@ export class OrderController {
 
     sendSuccess(res, 200, 'Order statistics retrieved successfully', stats);
   });
+
+  /**
+   * Track order by ID (PUBLIC - no auth required)
+   * GET /api/v1/orders/track/:id
+   * Returns limited order info for customer tracking
+   */
+  trackOrder = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const order = await orderService.getOrderById(id);
+
+    // Return only tracking-relevant information (not full order details)
+    const trackingInfo = {
+      orderId: order.id,
+      status: order.status,
+      statusHistory: order.statusHistory,
+      customerName: order.name,
+      totalAmount: order.totalAmount,
+      createdAt: order.created_at,
+    };
+
+    sendSuccess(res, 200, 'Order tracking info retrieved successfully', trackingInfo);
+  });
 }
 
 export default new OrderController();

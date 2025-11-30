@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import orderController from '../controllers/order.controller';
 import { validateRequest } from '../middlewares/validateRequest';
-import { requireAdmin, optionalAuth } from '../middlewares/authMiddleware';
+import { requireAdmin } from '../middlewares/authMiddleware';
 import {
   createOrderSchema,
   updateOrderStatusSchema,
@@ -17,42 +17,55 @@ const router = Router();
  *   post:
  *     tags:
  *       - orders
- *     summary: Create an order (public/optional auth)
+ *     summary: Create an order (PUBLIC - no auth required)
  *   get:
  *     tags:
  *       - orders
- *     summary: List orders (admin)
+ *     summary: List orders (admin only)
+ * /orders/track/{id}:
+ *   get:
+ *     tags:
+ *       - orders
+ *     summary: Track order by ID (PUBLIC - no auth required)
  * /orders/{id}:
  *   get:
  *     tags:
  *       - orders
- *     summary: Get order by id (admin)
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
+ *     summary: Get order details (admin only)
  * /orders/{id}/status:
  *   put:
  *     tags:
  *       - orders
- *     summary: Update order status (admin)
+ *     summary: Update order status (admin only)
  */
 
 /**
- * Public/User routes
+ * ========================================
+ * PUBLIC ROUTES (No authentication needed)
+ * ========================================
  */
+
+// Create order - PUBLIC (anyone can place an order)
 router.post(
   '/',
-  optionalAuth,
   validateRequest(createOrderSchema),
   orderController.createOrder
 );
 
+// Track order by ID - PUBLIC (customers can track their orders)
+router.get(
+  '/track/:id',
+  validateRequest(getOrderByIdSchema),
+  orderController.trackOrder
+);
+
 /**
- * Admin routes
+ * ========================================
+ * ADMIN ROUTES (Authentication required)
+ * ========================================
  */
+
+// Get all orders - ADMIN ONLY
 router.get(
   '/',
   requireAdmin,

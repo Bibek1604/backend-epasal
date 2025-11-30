@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import bannerService from '../services/banner.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadLocalImage, deleteLocalImage, uploadToCloudinary, deleteFromCloudinary } from '../middlewares/upload';
+import { uploadLocalImage, deleteLocalImage } from '../middlewares/upload';
 
 export class BannerController {
   /**

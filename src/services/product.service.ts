@@ -12,8 +12,7 @@ export class ProductService {
       page = 1,
       limit = 20,
       search,
-      categoryId,
-      sectionId,
+      category_id,
       hasOffer,
       minPrice,
       maxPrice,
@@ -28,12 +27,8 @@ export class ProductService {
       filter.$text = { $search: search };
     }
 
-    if (categoryId) {
-      filter.category_id = categoryId;
-    }
-
-    if (sectionId) {
-      filter.sectionId = sectionId;
+    if (category_id) {
+      filter.category_id = category_id;
     }
 
     if (hasOffer !== undefined) {
@@ -149,14 +144,7 @@ export class ProductService {
    * Get products by category
    */
   async getProductsByCategory(categoryId: string, query: IProductQuery) {
-    return this.getProducts({ ...query, categoryId });
-  }
-
-  /**
-   * Get products by section
-   */
-  async getProductsBySection(sectionId: string, query: IProductQuery) {
-    return this.getProducts({ ...query, sectionId });
+    return this.getProducts({ ...query, category_id: categoryId });
   }
 
   /**
