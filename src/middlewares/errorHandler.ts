@@ -21,6 +21,19 @@ export const errorHandler = (
     message = err.message;
   }
 
+  // Multer errors (file upload issues)
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    const multerErr = err as any;
+    if (multerErr.code === 'LIMIT_FILE_SIZE') {
+      message = 'File too large. Maximum size is 5MB.';
+    } else if (multerErr.code === 'LIMIT_UNEXPECTED_FILE') {
+      message = 'Unexpected field name for file upload. Use "image" field.';
+    } else {
+      message = `Upload error: ${multerErr.message}`;
+    }
+  }
+
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     statusCode = 400;
@@ -50,15 +63,19 @@ export const errorHandler = (
     message = 'Token expired';
   }
 
-  // Log error in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('❌ Error:', {
-      name: err.name,
-      message: err.message,
-      stack: err.stack,
-      statusCode,
-    });
+  // Cloudinary errors
+  if (err.message && err.message.includes('Cloudinary')) {
+    statusCode = 500;
+    message = 'Image upload failed. Please try again.';
   }
+
+  // Log error in development or production (for debugging Render issues)
+  console.error('❌ Error:', {
+    name: err.name,
+    message: err.message,
+    statusCode,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+  });
 
   // Send response
   const response: any = {

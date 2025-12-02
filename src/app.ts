@@ -1,4 +1,4 @@
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -10,17 +10,39 @@ import swaggerSpec from './swagger';
 const app: Application = express();
 
 /**
+ * ============================================
  * CORS Configuration - MUST BE FIRST
+ * ============================================
+ * Handle preflight OPTIONS requests properly to avoid 502 errors
  */
 const corsOptions = {
   origin: '*',
   credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200, // For legacy browsers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400, // Cache preflight for 24 hours
 };
 
+// Apply CORS before everything
 app.use(cors(corsOptions));
+
+// Explicit OPTIONS handler for all routes (prevents 502 on preflight)
+app.options('*', cors(corsOptions));
+
+/**
+ * Trust proxy (required for Render, Heroku, etc.)
+ */
+app.set('trust proxy', 1);
 
 /**
  * Security Middleware
@@ -28,7 +50,7 @@ app.use(cors(corsOptions));
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 /**
@@ -39,16 +61,17 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
 /**
- * NOTE: No /uploads static serving
- * All images are stored on Cloudinary CDN
- * Image URLs in database are Cloudinary secure_url (https://res.cloudinary.com/...)
- */;
+ * Health Check - responds quickly to prevent cold start timeouts
+ */
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 /**
  * Request Logging (Development)
  */
 if (process.env.NODE_ENV === 'development') {
-  app.use((req: Request, _res: Response, next) => {
+  app.use((req: Request, _res: Response, next: NextFunction) => {
     console.log(`${req.method} ${req.path}`);
     next();
   });
