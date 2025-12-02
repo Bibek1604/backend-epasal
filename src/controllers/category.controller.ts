@@ -4,15 +4,16 @@ import categoryService from '../services/category.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
 import { uploadImage, deleteImage } from '../middlewares/upload';
 
+// ===========================================
+// CATEGORY CONTROLLER
+// ===========================================
+// All image uploads go to Cloudinary
+
 export class CategoryController {
-  /**
-   * Get all categories
-   * GET /api/v1/categories
-   */
+  // GET /api/v1/categories
   getCategories = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as any;
     const result = await categoryService.getCategories(query);
-
     sendPaginatedResponse(
       res,
       result.categories,
@@ -23,97 +24,66 @@ export class CategoryController {
     );
   });
 
-  /**
-   * Get category by ID
-   * GET /api/v1/categories/:id
-   */
+  // GET /api/v1/categories/active
+  getActiveCategories = asyncHandler(async (_req: Request, res: Response) => {
+    const categories = await categoryService.getActiveCategories();
+    sendSuccess(res, 200, 'Active categories retrieved successfully', categories);
+  });
+
+  // GET /api/v1/categories/:id
   getCategoryById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const category = await categoryService.getCategoryById(id);
-
     sendSuccess(res, 200, 'Category retrieved successfully', category);
   });
 
-  /**
-   * Get category by slug
-   * GET /api/v1/categories/slug/:slug
-   */
+  // GET /api/v1/categories/slug/:slug
   getCategoryBySlug = asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
     const category = await categoryService.getCategoryBySlug(slug);
-
     sendSuccess(res, 200, 'Category retrieved successfully', category);
   });
 
-  /**
-   * Create new category
-   * POST /api/v1/categories
-   */
+  // POST /api/v1/categories (Admin)
   createCategory = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Upload image to Cloudinary
     if (req.file) {
-      imageUrl = await uploadImage(req.file);
-      console.log('✅ Category image uploaded to Cloudinary:', imageUrl);
+      imageUrl = await uploadImage(req.file, 'categories');
     }
 
     const category = await categoryService.createCategory(req.body, imageUrl);
-
     sendSuccess(res, 201, 'Category created successfully', category);
   });
 
-  /**
-   * Update category
-   * PUT /api/v1/categories/:id
-   */
+  // PUT /api/v1/categories/:id (Admin)
   updateCategory = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Upload new image to Cloudinary if provided
     if (req.file) {
-      // Delete old image from Cloudinary
       const oldCategory = await categoryService.getCategoryById(id);
       if (oldCategory.imageUrl) {
         await deleteImage(oldCategory.imageUrl);
       }
-
-      imageUrl = await uploadImage(req.file);
-      console.log('✅ Category image updated on Cloudinary:', imageUrl);
+      imageUrl = await uploadImage(req.file, 'categories');
     }
 
     const category = await categoryService.updateCategory(id, req.body, imageUrl);
-
     sendSuccess(res, 200, 'Category updated successfully', category);
   });
 
-  /**
-   * Delete category
-   * DELETE /api/v1/categories/:id
-   */
+  // DELETE /api/v1/categories/:id (Admin)
   deleteCategory = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Delete image from Cloudinary
     const category = await categoryService.getCategoryById(id);
     if (category.imageUrl) {
       await deleteImage(category.imageUrl);
     }
 
     const result = await categoryService.deleteCategory(id);
-
     sendSuccess(res, 200, result.message);
-  });
-
-  /**
-   * Get active categories
-   * GET /api/v1/categories/active
-   */
-  getActiveCategories = asyncHandler(async (_req: Request, res: Response) => {
-    const categories = await categoryService.getActiveCategories();
-
-    sendSuccess(res, 200, 'Active categories retrieved successfully', categories);
   });
 }
 

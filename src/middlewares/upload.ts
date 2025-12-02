@@ -1,49 +1,53 @@
 import multer from 'multer';
-import path from 'path';
 import { Request } from 'express';
-import { BadRequestError } from '../utils/errors';
 import { cloudinary } from '../config/cloudinary';
 import { Readable } from 'stream';
+import { BadRequestError } from '../utils/errors';
 
-/**
- * ============================================
- * CLOUDINARY-ONLY IMAGE UPLOAD
- * ============================================
- * All images are stored on Cloudinary.
- * No local /uploads folder is used.
- * Images load fast from Cloudinary CDN globally.
- */
+// ===========================================
+// CLOUDINARY-ONLY IMAGE UPLOAD
+// ===========================================
+// NO disk storage - files go directly to Cloudinary
+// Works on Render, Heroku, Vercel, etc.
 
-// Use memory storage - files go directly to Cloudinary (not saved locally)
+// ===========================================
+// 1. MULTER CONFIGURATION (Memory Storage)
+// ===========================================
 const storage = multer.memoryStorage();
 
-// File filter to accept only images
+// File filter - only allow images
 const fileFilter = (
   _req: Request,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ): void => {
-  const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const allowedMimes = [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/webp',
+  ];
 
-  if (extname && mimetype) {
+  if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new BadRequestError('Only image files are allowed (jpeg, jpg, png, gif, webp)'));
   }
 };
 
-// Multer upload configuration
+// Multer instance
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
+    fileSize: 5 * 1024 * 1024, // 5MB max
   },
 });
 
-// Export upload middleware
+// ===========================================
+// 2. EXPORT MULTER MIDDLEWARES
+// ===========================================
 export const uploadSingle = upload.single('image');
 export const uploadMultiple = upload.array('images', 10);
 export const uploadFields = upload.fields([
@@ -51,47 +55,34 @@ export const uploadFields = upload.fields([
   { name: 'images', maxCount: 10 },
 ]);
 
+// ===========================================
+// 3. CLOUDINARY UPLOAD FUNCTION
+// ===========================================
 /**
  * Upload image to Cloudinary
- * Returns the secure_url which is stored in the database
+ * @param file - Multer file from req.file
+ * @param folder - Cloudinary folder (default: 'epasaley')
+ * @returns Cloudinary secure_url
  */
-export const uploadImage = async (file: Express.Multer.File): Promise<string> => {
-  if (!file) {
-    throw new BadRequestError('No file provided');
-  }
-
-  return await uploadToCloudinary(file);
-};
-
-/**
- * Delete image from Cloudinary
- */
-export const deleteImage = async (imageUrl: string): Promise<void> => {
-  if (!imageUrl) return;
-  await deleteFromCloudinary(imageUrl);
-};
-
-// Backward compatibility aliases (controllers use these names)
-export const uploadLocalImage = uploadImage;
-export const deleteLocalImage = deleteImage;
-
-/**
- * Upload to Cloudinary - returns the secure_url
- */
-export const uploadToCloudinary = async (
+export const uploadImage = async (
   file: Express.Multer.File,
   folder: string = 'epasaley'
 ): Promise<string> => {
-  // Allow disabling Cloudinary during tests
+  if (!file || !file.buffer) {
+    throw new BadRequestError('No file provided for upload');
+  }
+
+  // For testing - skip actual upload
   if (process.env.DISABLE_CLOUDINARY === 'true') {
     return 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
   }
 
   return new Promise((resolve, reject) => {
+    // Create upload stream to Cloudinary
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: 'auto',
+        resource_type: 'image',
         transformation: [
           { width: 1200, height: 1200, crop: 'limit' },
           { quality: 'auto:good' },
@@ -100,10 +91,10 @@ export const uploadToCloudinary = async (
       },
       (error, result) => {
         if (error) {
-          console.error('Cloudinary upload error:', error);
+          console.error('❌ Cloudinary upload error:', error.message);
           reject(new BadRequestError('Failed to upload image to Cloudinary'));
         } else if (result) {
-          // Return the secure HTTPS URL from Cloudinary
+          console.log('✅ Image uploaded to Cloudinary:', result.secure_url);
           resolve(result.secure_url);
         } else {
           reject(new BadRequestError('No result from Cloudinary'));
@@ -111,7 +102,7 @@ export const uploadToCloudinary = async (
       }
     );
 
-    // Stream the file buffer to Cloudinary
+    // Stream file buffer to Cloudinary
     const bufferStream = new Readable();
     bufferStream.push(file.buffer);
     bufferStream.push(null);
@@ -119,34 +110,41 @@ export const uploadToCloudinary = async (
   });
 };
 
+// ===========================================
+// 4. CLOUDINARY DELETE FUNCTION
+// ===========================================
 /**
- * Delete image from Cloudinary using its URL
+ * Delete image from Cloudinary
+ * @param imageUrl - Full Cloudinary URL
  */
-export const deleteFromCloudinary = async (imageUrl: string): Promise<void> => {
-  try {
-    if (!imageUrl || !imageUrl.includes('cloudinary')) {
-      // Skip if not a Cloudinary URL (e.g., old local paths)
-      return;
-    }
+export const deleteImage = async (imageUrl: string): Promise<void> => {
+  if (!imageUrl) return;
 
-    // Extract public ID from Cloudinary URL
-    // URL format: https://res.cloudinary.com/cloud_name/image/upload/v123/folder/filename.ext
+  // Only delete Cloudinary images
+  if (!imageUrl.includes('cloudinary.com')) {
+    console.log('⚠️ Skipping non-Cloudinary image:', imageUrl);
+    return;
+  }
+
+  try {
+    // Extract public_id from URL
+    // Format: https://res.cloudinary.com/cloud/image/upload/v123/folder/filename.ext
     const urlParts = imageUrl.split('/');
     const uploadIndex = urlParts.indexOf('upload');
     
     if (uploadIndex === -1) return;
 
-    // Get everything after 'upload/v123456/' 
+    // Get path after version (v123456)
     const pathAfterUpload = urlParts.slice(uploadIndex + 2).join('/');
-    // Remove file extension to get public_id
+    // Remove extension
     const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '');
 
     if (publicId) {
       await cloudinary.uploader.destroy(publicId);
-      console.log('Deleted from Cloudinary:', publicId);
+      console.log('✅ Deleted from Cloudinary:', publicId);
     }
   } catch (error) {
-    console.error('Error deleting from Cloudinary:', error);
-    // Don't throw - deletion failure shouldn't break the main operation
+    console.error('❌ Error deleting from Cloudinary:', error);
+    // Don't throw - deletion failure shouldn't break the request
   }
 };

@@ -4,11 +4,17 @@ import bannerService from '../services/banner.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
 import { uploadImage, deleteImage } from '../middlewares/upload';
 
+// ===========================================
+// BANNER CONTROLLER
+// ===========================================
+// All image uploads go to Cloudinary
+// secure_url is stored in MongoDB
+
 export class BannerController {
-  /**
-   * Get all banners
-   * GET /api/v1/banners
-   */
+  // ===========================================
+  // GET /api/v1/banners
+  // Get all banners with pagination
+  // ===========================================
   getBanners = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as any;
     const result = await bannerService.getBanners(query);
@@ -23,45 +29,51 @@ export class BannerController {
     );
   });
 
-  /**
-   * Get banner by ID
-   * GET /api/v1/banners/:id
-   */
+  // ===========================================
+  // GET /api/v1/banners/active
+  // Get only active banners (for frontend)
+  // ===========================================
+  getActiveBanners = asyncHandler(async (_req: Request, res: Response) => {
+    const banners = await bannerService.getActiveBanners();
+    sendSuccess(res, 200, 'Active banners retrieved successfully', banners);
+  });
+
+  // ===========================================
+  // GET /api/v1/banners/:id
+  // Get single banner by ID
+  // ===========================================
   getBannerById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const banner = await bannerService.getBannerById(id);
-
     sendSuccess(res, 200, 'Banner retrieved successfully', banner);
   });
 
-  /**
-   * Create new banner
-   * POST /api/v1/banners
-   * Image is uploaded to Cloudinary, secure_url is stored in MongoDB
-   */
+  // ===========================================
+  // POST /api/v1/banners
+  // Create new banner (Admin only)
+  // Image → Cloudinary → secure_url → MongoDB
+  // ===========================================
   createBanner = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Upload image to Cloudinary (memory storage → Cloudinary stream)
+    // Upload image to Cloudinary
     if (req.file) {
-      imageUrl = await uploadImage(req.file);
-      console.log('✅ Banner image uploaded to Cloudinary:', imageUrl);
+      imageUrl = await uploadImage(req.file, 'banners');
     }
 
     const banner = await bannerService.createBanner(req.body, imageUrl);
-
     sendSuccess(res, 201, 'Banner created successfully', banner);
   });
 
-  /**
-   * Update banner
-   * PUT /api/v1/banners/:id
-   */
+  // ===========================================
+  // PUT /api/v1/banners/:id
+  // Update banner (Admin only)
+  // ===========================================
   updateBanner = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Upload new image to Cloudinary if provided
+    // If new image provided, upload to Cloudinary
     if (req.file) {
       // Delete old image from Cloudinary
       const oldBanner = await bannerService.getBannerById(id);
@@ -70,19 +82,17 @@ export class BannerController {
       }
 
       // Upload new image
-      imageUrl = await uploadImage(req.file);
-      console.log('✅ Banner image updated on Cloudinary:', imageUrl);
+      imageUrl = await uploadImage(req.file, 'banners');
     }
 
     const banner = await bannerService.updateBanner(id, req.body, imageUrl);
-
     sendSuccess(res, 200, 'Banner updated successfully', banner);
   });
 
-  /**
-   * Delete banner
-   * DELETE /api/v1/banners/:id
-   */
+  // ===========================================
+  // DELETE /api/v1/banners/:id
+  // Delete banner (Admin only)
+  // ===========================================
   deleteBanner = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -93,18 +103,7 @@ export class BannerController {
     }
 
     const result = await bannerService.deleteBanner(id);
-
     sendSuccess(res, 200, result.message);
-  });
-
-  /**
-   * Get active banners
-   * GET /api/v1/banners/active
-   */
-  getActiveBanners = asyncHandler(async (_req: Request, res: Response) => {
-    const banners = await bannerService.getActiveBanners();
-
-    sendSuccess(res, 200, 'Active banners retrieved successfully', banners);
   });
 }
 
