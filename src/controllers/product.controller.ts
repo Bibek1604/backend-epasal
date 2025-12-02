@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import productService from '../services/product.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadLocalImage, deleteLocalImage } from '../middlewares/upload';
+import { uploadImage, deleteImage } from '../middlewares/upload';
 
 export class ProductController {
   /**
@@ -41,9 +41,10 @@ export class ProductController {
   createProduct = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload image to Cloudinary
     if (req.file) {
-      imageUrl = await uploadLocalImage(req.file);
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Product image uploaded to Cloudinary:', imageUrl);
     }
 
     const product = await productService.createProduct(req.body, imageUrl);
@@ -59,15 +60,16 @@ export class ProductController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload new image to Cloudinary if provided
     if (req.file) {
-      // Get old product to delete old image
+      // Delete old image from Cloudinary
       const oldProduct = await productService.getProductById(id);
       if (oldProduct.imageUrl) {
-        await deleteLocalImage(oldProduct.imageUrl);
+        await deleteImage(oldProduct.imageUrl);
       }
 
-      imageUrl = await uploadLocalImage(req.file);
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Product image updated on Cloudinary:', imageUrl);
     }
 
     const product = await productService.updateProduct(id, req.body, imageUrl);
@@ -82,10 +84,10 @@ export class ProductController {
   deleteProduct = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Get product to delete image
+    // Delete image from Cloudinary
     const product = await productService.getProductById(id);
     if (product.imageUrl) {
-      await deleteLocalImage(product.imageUrl);
+      await deleteImage(product.imageUrl);
     }
 
     const result = await productService.deleteProduct(id);

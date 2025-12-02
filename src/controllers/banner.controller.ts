@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import bannerService from '../services/banner.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadLocalImage, deleteLocalImage } from '../middlewares/upload';
+import { uploadImage, deleteImage } from '../middlewares/upload';
 
 export class BannerController {
   /**
@@ -37,13 +37,15 @@ export class BannerController {
   /**
    * Create new banner
    * POST /api/v1/banners
+   * Image is uploaded to Cloudinary, secure_url is stored in MongoDB
    */
   createBanner = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload image to Cloudinary (memory storage → Cloudinary stream)
     if (req.file) {
-      imageUrl = await uploadLocalImage(req.file);
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Banner image uploaded to Cloudinary:', imageUrl);
     }
 
     const banner = await bannerService.createBanner(req.body, imageUrl);
@@ -59,15 +61,17 @@ export class BannerController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload new image to Cloudinary if provided
     if (req.file) {
-      // Get old banner to delete old image
+      // Delete old image from Cloudinary
       const oldBanner = await bannerService.getBannerById(id);
       if (oldBanner.imageUrl) {
-        await deleteLocalImage(oldBanner.imageUrl);
+        await deleteImage(oldBanner.imageUrl);
       }
 
-      imageUrl = await uploadLocalImage(req.file);
+      // Upload new image
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Banner image updated on Cloudinary:', imageUrl);
     }
 
     const banner = await bannerService.updateBanner(id, req.body, imageUrl);
@@ -82,10 +86,10 @@ export class BannerController {
   deleteBanner = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Get banner to delete image
+    // Delete image from Cloudinary
     const banner = await bannerService.getBannerById(id);
     if (banner.imageUrl) {
-      await deleteLocalImage(banner.imageUrl);
+      await deleteImage(banner.imageUrl);
     }
 
     const result = await bannerService.deleteBanner(id);

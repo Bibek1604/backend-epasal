@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/asyncHandler';
 import categoryService from '../services/category.service';
 import { sendSuccess, sendPaginatedResponse } from '../utils/responseHelper';
-import { uploadLocalImage, deleteLocalImage } from '../middlewares/upload';
+import { uploadImage, deleteImage } from '../middlewares/upload';
 
 export class CategoryController {
   /**
@@ -52,9 +52,10 @@ export class CategoryController {
   createCategory = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload image to Cloudinary
     if (req.file) {
-      imageUrl = await uploadLocalImage(req.file);
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Category image uploaded to Cloudinary:', imageUrl);
     }
 
     const category = await categoryService.createCategory(req.body, imageUrl);
@@ -70,15 +71,16 @@ export class CategoryController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - uses Cloudinary in production, local in dev
+    // Upload new image to Cloudinary if provided
     if (req.file) {
-      // Get old category to delete old image
+      // Delete old image from Cloudinary
       const oldCategory = await categoryService.getCategoryById(id);
       if (oldCategory.imageUrl) {
-        await deleteLocalImage(oldCategory.imageUrl);
+        await deleteImage(oldCategory.imageUrl);
       }
 
-      imageUrl = await uploadLocalImage(req.file);
+      imageUrl = await uploadImage(req.file);
+      console.log('✅ Category image updated on Cloudinary:', imageUrl);
     }
 
     const category = await categoryService.updateCategory(id, req.body, imageUrl);
@@ -93,10 +95,10 @@ export class CategoryController {
   deleteCategory = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    // Get category to delete image
+    // Delete image from Cloudinary
     const category = await categoryService.getCategoryById(id);
     if (category.imageUrl) {
-      await deleteLocalImage(category.imageUrl);
+      await deleteImage(category.imageUrl);
     }
 
     const result = await categoryService.deleteCategory(id);
