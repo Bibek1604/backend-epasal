@@ -1,7 +1,8 @@
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
+import path from 'path';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import routes from './routes';
 import swaggerUi from 'swagger-ui-express';
@@ -10,26 +11,10 @@ import swaggerSpec from './swagger';
 const app: Application = express();
 
 /**
- * Security Middleware
- */
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}));
-
-/**
- * CORS Configuration
+ * CORS Configuration - MUST BE FIRST
  */
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: '*',
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -39,6 +24,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 /**
+ * Security Middleware
+ */
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+}));
+
+/**
  * Body Parser & Compression
  */
 app.use(express.json({ limit: '10mb' }));
@@ -46,11 +40,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
 /**
- * Serve Static Files (Uploaded Images)
+ * Serve Static Files (Uploaded Images) with CORS headers
  */
-import path from 'path';
 const uploadsDir = path.join(__dirname, '../uploads');
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+}, express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 /**
  * Request Logging (Development)
