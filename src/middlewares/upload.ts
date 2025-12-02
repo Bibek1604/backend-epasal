@@ -1,32 +1,21 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import { Request } from 'express';
 import { BadRequestError } from '../utils/errors';
 import { cloudinary } from '../config/cloudinary';
 import { Readable } from 'stream';
 
-// Determine if we're in production (use Cloudinary) or development (use local)
-const isProduction = process.env.NODE_ENV === 'production';
+/**
+ * ============================================
+ * CLOUDINARY-ONLY IMAGE UPLOAD
+ * ============================================
+ * All images are stored on Cloudinary.
+ * No local /uploads folder is used.
+ * Images load fast from Cloudinary CDN globally.
+ */
 
-// Create uploads directory if it doesn't exist (for local development)
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Use memory storage for Cloudinary (production) or disk storage (development)
-const storage = isProduction 
-  ? multer.memoryStorage()
-  : multer.diskStorage({
-      destination: (_req, _file, cb) => {
-        cb(null, uploadsDir);
-      },
-      filename: (_req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-      },
-    });
+// Use memory storage - files go directly to Cloudinary (not saved locally)
+const storage = multer.memoryStorage();
 
 // File filter to accept only images
 const fileFilter = (
@@ -56,64 +45,46 @@ const upload = multer({
 
 // Export upload middleware
 export const uploadSingle = upload.single('image');
-export const uploadMultiple = upload.array('images', 10); // Max 10 images
+export const uploadMultiple = upload.array('images', 10);
 export const uploadFields = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'images', maxCount: 10 },
 ]);
 
 /**
- * Upload image - uses Cloudinary in production, local storage in development
+ * Upload image to Cloudinary
+ * Returns the secure_url which is stored in the database
  */
-export const uploadLocalImage = async (file: Express.Multer.File): Promise<string> => {
+export const uploadImage = async (file: Express.Multer.File): Promise<string> => {
   if (!file) {
     throw new BadRequestError('No file provided');
   }
 
-  // In production, use Cloudinary
-  if (isProduction) {
-    return await uploadToCloudinary(file);
-  }
-
-  // In development, return local path
-  return `/uploads/${file.filename}`;
+  return await uploadToCloudinary(file);
 };
 
 /**
- * Delete image - uses Cloudinary in production, local storage in development
+ * Delete image from Cloudinary
  */
-export const deleteLocalImage = async (imagePath: string): Promise<void> => {
-  try {
-    if (!imagePath) return;
-    
-    // In production, delete from Cloudinary
-    if (isProduction || imagePath.includes('cloudinary')) {
-      await deleteFromCloudinary(imagePath);
-      return;
-    }
-
-    // In development, delete local file
-    const filename = imagePath.replace('/uploads/', '');
-    const filepath = path.join(uploadsDir, filename);
-    
-    if (fs.existsSync(filepath)) {
-      fs.unlinkSync(filepath);
-    }
-  } catch (error) {
-    console.error('Error deleting image:', error);
-  }
+export const deleteImage = async (imageUrl: string): Promise<void> => {
+  if (!imageUrl) return;
+  await deleteFromCloudinary(imageUrl);
 };
 
+// Backward compatibility aliases (controllers use these names)
+export const uploadLocalImage = uploadImage;
+export const deleteLocalImage = deleteImage;
+
 /**
- * Cloudinary upload helper
+ * Upload to Cloudinary - returns the secure_url
  */
 export const uploadToCloudinary = async (
   file: Express.Multer.File,
   folder: string = 'epasaley'
 ): Promise<string> => {
-  // Allow disabling Cloudinary during tests to avoid external network calls
+  // Allow disabling Cloudinary during tests
   if (process.env.DISABLE_CLOUDINARY === 'true') {
-    return Promise.resolve('https://example.com/placeholder.jpg');
+    return 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
   }
 
   return new Promise((resolve, reject) => {
@@ -122,20 +93,25 @@ export const uploadToCloudinary = async (
         folder,
         resource_type: 'auto',
         transformation: [
-          { width: 1000, height: 1000, crop: 'limit' },
-          { quality: 'auto' },
+          { width: 1200, height: 1200, crop: 'limit' },
+          { quality: 'auto:good' },
           { fetch_format: 'auto' },
         ],
       },
       (error, result) => {
         if (error) {
-          reject(new BadRequestError('Error uploading image to Cloudinary'));
+          console.error('Cloudinary upload error:', error);
+          reject(new BadRequestError('Failed to upload image to Cloudinary'));
         } else if (result) {
+          // Return the secure HTTPS URL from Cloudinary
           resolve(result.secure_url);
+        } else {
+          reject(new BadRequestError('No result from Cloudinary'));
         }
       }
     );
 
+    // Stream the file buffer to Cloudinary
     const bufferStream = new Readable();
     bufferStream.push(file.buffer);
     bufferStream.push(null);
@@ -144,19 +120,33 @@ export const uploadToCloudinary = async (
 };
 
 /**
- * Delete image from Cloudinary
+ * Delete image from Cloudinary using its URL
  */
 export const deleteFromCloudinary = async (imageUrl: string): Promise<void> => {
   try {
-    // Extract public ID from URL
-    const parts = imageUrl.split('/');
-    const filename = parts[parts.length - 1];
-    const publicId = filename.split('.')[0];
-    const folder = parts[parts.length - 2];
-    const fullPublicId = `${folder}/${publicId}`;
+    if (!imageUrl || !imageUrl.includes('cloudinary')) {
+      // Skip if not a Cloudinary URL (e.g., old local paths)
+      return;
+    }
 
-    await cloudinary.uploader.destroy(fullPublicId);
+    // Extract public ID from Cloudinary URL
+    // URL format: https://res.cloudinary.com/cloud_name/image/upload/v123/folder/filename.ext
+    const urlParts = imageUrl.split('/');
+    const uploadIndex = urlParts.indexOf('upload');
+    
+    if (uploadIndex === -1) return;
+
+    // Get everything after 'upload/v123456/' 
+    const pathAfterUpload = urlParts.slice(uploadIndex + 2).join('/');
+    // Remove file extension to get public_id
+    const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '');
+
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId);
+      console.log('Deleted from Cloudinary:', publicId);
+    }
   } catch (error) {
-    console.error('Error deleting image from Cloudinary:', error);
+    console.error('Error deleting from Cloudinary:', error);
+    // Don't throw - deletion failure shouldn't break the main operation
   }
 };

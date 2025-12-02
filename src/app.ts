@@ -1,8 +1,7 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import path from 'path';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import routes from './routes';
 import swaggerUi from 'swagger-ui-express';
@@ -40,21 +39,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
 /**
- * Serve Static Files (Uploaded Images) with CORS headers
- */
-const uploadsDir = path.join(__dirname, '../uploads');
-app.use('/uploads', (_req: Request, res: Response, next: NextFunction) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  next();
-}, express.static(uploadsDir, {
-  setHeaders: (res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
-}));
+ * NOTE: No /uploads static serving
+ * All images are stored on Cloudinary CDN
+ * Image URLs in database are Cloudinary secure_url (https://res.cloudinary.com/...)
+ */;
 
 /**
  * Request Logging (Development)
