@@ -2,12 +2,11 @@ import mongoose from 'mongoose';
 
 const connectDB = async (): Promise<void> => {
   try {
-    const mongoURI = process.env.NODE_ENV === 'production' 
-      ? process.env.MONGODB_URI_PROD 
-      : process.env.MONGODB_URI;
+    // Use MONGODB_URI for both dev and production (simpler)
+    const mongoURI = process.env.MONGODB_URI;
 
     if (!mongoURI) {
-      throw new Error('MongoDB URI is not defined in environment variables');
+      throw new Error('MONGODB_URI is not defined in environment variables');
     }
 
     const conn = await mongoose.connect(mongoURI, {
