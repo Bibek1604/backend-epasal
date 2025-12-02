@@ -52,9 +52,9 @@ export class CategoryController {
   createCategory = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const category = await categoryService.createCategory(req.body, imageUrl);
@@ -70,15 +70,15 @@ export class CategoryController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
       // Get old category to delete old image
       const oldCategory = await categoryService.getCategoryById(id);
       if (oldCategory.imageUrl) {
-        deleteLocalImage(oldCategory.imageUrl);
+        await deleteLocalImage(oldCategory.imageUrl);
       }
 
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const category = await categoryService.updateCategory(id, req.body, imageUrl);
@@ -96,7 +96,7 @@ export class CategoryController {
     // Get category to delete image
     const category = await categoryService.getCategoryById(id);
     if (category.imageUrl) {
-      deleteLocalImage(category.imageUrl);
+      await deleteLocalImage(category.imageUrl);
     }
 
     const result = await categoryService.deleteCategory(id);

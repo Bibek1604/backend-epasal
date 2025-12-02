@@ -41,9 +41,9 @@ export class ProductController {
   createProduct = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const product = await productService.createProduct(req.body, imageUrl);
@@ -59,15 +59,15 @@ export class ProductController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
       // Get old product to delete old image
       const oldProduct = await productService.getProductById(id);
       if (oldProduct.imageUrl) {
-        deleteLocalImage(oldProduct.imageUrl);
+        await deleteLocalImage(oldProduct.imageUrl);
       }
 
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const product = await productService.updateProduct(id, req.body, imageUrl);
@@ -85,7 +85,7 @@ export class ProductController {
     // Get product to delete image
     const product = await productService.getProductById(id);
     if (product.imageUrl) {
-      deleteLocalImage(product.imageUrl);
+      await deleteLocalImage(product.imageUrl);
     }
 
     const result = await productService.deleteProduct(id);

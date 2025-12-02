@@ -3,23 +3,30 @@ import path from 'path';
 import fs from 'fs';
 import { Request } from 'express';
 import { BadRequestError } from '../utils/errors';
+import { cloudinary } from '../config/cloudinary';
+import { Readable } from 'stream';
 
-// Create uploads directory if it doesn't exist
+// Determine if we're in production (use Cloudinary) or development (use local)
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Create uploads directory if it doesn't exist (for local development)
 const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure disk storage for local uploads
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Use memory storage for Cloudinary (production) or disk storage (development)
+const storage = isProduction 
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_req, _file, cb) => {
+        cb(null, uploadsDir);
+      },
+      filename: (_req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+      },
+    });
 
 // File filter to accept only images
 const fileFilter = (
@@ -56,27 +63,36 @@ export const uploadFields = upload.fields([
 ]);
 
 /**
- * Local file upload helper
- * Saves uploaded image to local /uploads directory
+ * Upload image - uses Cloudinary in production, local storage in development
  */
-export const uploadLocalImage = (file: Express.Multer.File): string => {
+export const uploadLocalImage = async (file: Express.Multer.File): Promise<string> => {
   if (!file) {
     throw new BadRequestError('No file provided');
   }
 
-  // Return relative path for serving the image
-  const imagePath = `/uploads/${file.filename}`;
-  return imagePath;
+  // In production, use Cloudinary
+  if (isProduction) {
+    return await uploadToCloudinary(file);
+  }
+
+  // In development, return local path
+  return `/uploads/${file.filename}`;
 };
 
 /**
- * Delete local image file
+ * Delete image - uses Cloudinary in production, local storage in development
  */
-export const deleteLocalImage = (imagePath: string): void => {
+export const deleteLocalImage = async (imagePath: string): Promise<void> => {
   try {
     if (!imagePath) return;
     
-    // Extract filename from path
+    // In production, delete from Cloudinary
+    if (isProduction || imagePath.includes('cloudinary')) {
+      await deleteFromCloudinary(imagePath);
+      return;
+    }
+
+    // In development, delete local file
     const filename = imagePath.replace('/uploads/', '');
     const filepath = path.join(uploadsDir, filename);
     
@@ -84,16 +100,13 @@ export const deleteLocalImage = (imagePath: string): void => {
       fs.unlinkSync(filepath);
     }
   } catch (error) {
-    console.error('Error deleting local image:', error);
+    console.error('Error deleting image:', error);
   }
 };
 
 /**
- * Cloudinary upload helper (kept for backward compatibility)
+ * Cloudinary upload helper
  */
-import { cloudinary } from '../config/cloudinary';
-import { Readable } from 'stream';
-
 export const uploadToCloudinary = async (
   file: Express.Multer.File,
   folder: string = 'epasaley'

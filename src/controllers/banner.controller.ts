@@ -41,9 +41,9 @@ export class BannerController {
   createBanner = asyncHandler(async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const banner = await bannerService.createBanner(req.body, imageUrl);
@@ -59,15 +59,15 @@ export class BannerController {
     const { id } = req.params;
     let imageUrl: string | undefined;
 
-    // Handle image upload - using local storage
+    // Handle image upload - uses Cloudinary in production, local in dev
     if (req.file) {
       // Get old banner to delete old image
       const oldBanner = await bannerService.getBannerById(id);
       if (oldBanner.imageUrl) {
-        deleteLocalImage(oldBanner.imageUrl);
+        await deleteLocalImage(oldBanner.imageUrl);
       }
 
-      imageUrl = uploadLocalImage(req.file);
+      imageUrl = await uploadLocalImage(req.file);
     }
 
     const banner = await bannerService.updateBanner(id, req.body, imageUrl);
@@ -85,7 +85,7 @@ export class BannerController {
     // Get banner to delete image
     const banner = await bannerService.getBannerById(id);
     if (banner.imageUrl) {
-      deleteLocalImage(banner.imageUrl);
+      await deleteLocalImage(banner.imageUrl);
     }
 
     const result = await bannerService.deleteBanner(id);
